@@ -2,6 +2,8 @@ import os
 from dotenv import load_dotenv
 import httpx
 from src.exceptions import WeatherProviderError, WetaherNotFoundError
+from redis.asyncio import Redis
+import json
 
 
 
@@ -9,6 +11,13 @@ load_dotenv()
 
 API_KEY = os.getenv("WEATHER_API_KEY")
 BASE_URL = os.getenv("WEATHER_BASE_URL")
+REDIS_URL = os.getenv("REDIS_URL")
+CACHE_TTL = int(os.getenv("WEATHER_DATA_TTL", "60"))
+
+redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
+
+def _cache_key(city: str) -> str:
+    return f"weather:{city.strip().lower()}"
 
 
 def _to_human_readable(data: dict) -> dict:
@@ -87,6 +96,12 @@ def _to_human_readable(data: dict) -> dict:
 async def fetch_weather(city : str) -> dict:
     if not API_KEY:
         raise RuntimeError("Weather api is not set")
+    cache_key = _cache_key(city)
+    cached = await redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
+    
     url = f"{BASE_URL}{city}/today"
     params = {
         "unitGroup": "metric",
@@ -104,7 +119,9 @@ async def fetch_weather(city : str) -> dict:
             raise WeatherProviderError(f"Weather api error with status code: {response.status_code}")
         
         raw = response.json()
-        return _to_human_readable(raw)
+        result = _to_human_readable(raw)
+        await redis_client.setex(cache_key, CACHE_TTL, json.dumps(result))
+        return result
         
     except httpx.TimeoutException:
         raise WeatherProviderError("Weather api timed out")
