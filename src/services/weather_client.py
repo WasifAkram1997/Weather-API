@@ -21,7 +21,6 @@ def _cache_key(city: str) -> str:
 
 
 def _to_human_readable(data: dict) -> dict:
-    # Visual Crossing data is inside data["message"] in your current output
     msg = data.get("message", data)
 
     city = msg.get("resolvedAddress") or msg.get("address") or "Unknown"
@@ -59,43 +58,63 @@ def _to_human_readable(data: dict) -> dict:
     current_feels = current.get("feelslike")
 
     return {
-        "city": city,
-        "date": date,
-        "timezone": timezone,
-        "summary": desc,
-        "conditions": conditions,
-        "temperature_c": {
-            "average": temp,
-            "high": tempmax,
-            "low": tempmin,
-            "feels_like": feelslike,
-        },
-        "precipitation": {
-            "amount_mm": precip,
-            "chance_percent": precipprob,
-            "types": preciptype,
-            "snow": snow,
-        },
-        "wind": {
-            "speed_kmh": windspeed,
-            "gust_kmh": windgust,
-            "direction_degrees": winddir,
-        },
-        "sun": {
-            "sunrise": sunrise,
-            "sunset": sunset,
-        },
-        "current": {
-            "time": current_time,
-            "conditions": current_cond,
-            "temp_c": current_temp,
-            "feels_like_c": current_feels,
-        } if current else None,
-    }
+  "version": "v1",
+  "city": city,
+  "date": date,
+  "timezone": timezone,
+  "summary": desc,
+  "conditions": conditions,
+  "temp_avg_c": temp,
+  "temp_max_c": tempmax,
+  "temp_min_c": tempmin,
+  "feels_like_c": feelslike,
+  "precip_mm": precip,
+  "precip_prob_percent": precipprob,
+  "wind_speed_kmh": windspeed,
+  "wind_gust_kmh": windgust,
+  "sunrise": sunrise,
+  "sunset": sunset
+}
+
+    # return {
+    #     "city": city,
+    #     "date": date,
+    #     "timezone": timezone,
+    #     "summary": desc,
+    #     "conditions": conditions,
+    #     "temperature_c": {
+    #         "average": temp,
+    #         "high": tempmax,
+    #         "low": tempmin,
+    #         "feels_like": feelslike,
+    #     },
+    #     "precipitation": {
+    #         "amount_mm": precip,
+    #         "chance_percent": precipprob,
+    #         "types": preciptype,
+    #         "snow": snow,
+    #     },
+    #     "wind": {
+    #         "speed_kmh": windspeed,
+    #         "gust_kmh": windgust,
+    #         "direction_degrees": winddir,
+    #     },
+    #     "sun": {
+    #         "sunrise": sunrise,
+    #         "sunset": sunset,
+    #     },
+    #     "current": {
+    #         "time": current_time,
+    #         "conditions": current_cond,
+    #         "temp_c": current_temp,
+    #         "feels_like_c": current_feels,
+    #     } if current else None,
+    # }
 
 async def fetch_weather(city : str) -> dict:
     if not API_KEY:
-        raise RuntimeError("Weather api is not set")
+        # raise RuntimeError("Weather api is not set")
+        raise WeatherProviderError("Weather api is not set")
     cache_key = _cache_key(city)
     cached = await redis_client.get(cache_key)
     if cached:

@@ -6,7 +6,7 @@ def register_exception_handlers(app):
     @app.exception_handler(WeatherProviderError)
     async def weather_provider_error_handler(request: Request, exc: WeatherProviderError):
         return JSONResponse(
-            status_code=502,
+            status_code=503,
             content={"detail": str(exc)}
         )
 
