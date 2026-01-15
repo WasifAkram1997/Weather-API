@@ -4,3 +4,6 @@ class WeatherProviderError(Exception):
 
 class WetaherNotFoundError(WeatherProviderError):
     pass
+
+class InvalidInputError(Exception):
+    pass
