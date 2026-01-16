@@ -1,6 +1,7 @@
 import os
 import json
 import httpx
+import logging
 
 from dotenv import load_dotenv
 from redis.asyncio import Redis
@@ -12,6 +13,7 @@ from src.redis_client import get_redis
 
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 API_KEY = os.getenv("WEATHER_API_KEY")
 BASE_URL = os.getenv("WEATHER_BASE_URL")
@@ -117,17 +119,26 @@ def _to_human_readable(data: dict) -> dict:
 
 async def fetch_weather(city : str) -> dict:
     if not API_KEY:
-        # raise RuntimeError("Weather api is not set")
         raise WeatherProviderError("Weather api is not set")
     cache_key = _cache_key(city)
-    redis =await get_redis()
-    # cached = await redis_client.get(cache_key)
+
     try:
+        redis =await get_redis()
         cached = await redis.get(cache_key)
-    except:
-        cached = None    
-    if cached:
-        return json.loads(cached)
+        if cached:
+            logger.debug(f"Cache hit for city: {city}")
+            return json.loads(cached)
+    except Exception as e:
+        logger.warning(f"Cache read failed for city: {city}")    
+    
+    # # cached = await redis_client.get(cache_key)
+    # try:
+    #     cached = await redis.get(cache_key)
+    # except:
+    #     cached = None    
+    # if cached:
+    #     return json.loads(cached)
+    logger.debug(f"Fetching weather from API for city: {city}")
     
     
     url = f"{BASE_URL}{city}/today"
@@ -150,8 +161,9 @@ async def fetch_weather(city : str) -> dict:
         result = _to_human_readable(raw)
         try:
             await redis.set(cache_key, json.dumps(result), ex=CACHE_TTL)
-        except:
-            pass    
+            logger.debug(f"Cached weather for city: {city}")
+        except Exception as e:
+            logger.warning(f"Cache write failed for city: {city}")
         return result
         
     except httpx.TimeoutException:

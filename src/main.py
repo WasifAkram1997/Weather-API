@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, Query, Request, Response, HTTPException
@@ -12,10 +13,13 @@ from src.services.weather_client import fetch_weather
 from src.exception_handlers import register_exception_handlers
 from src.exceptions import InvalidInputError
 from src.redis_client import initialize_redis, close_redis
+from src.logger import setup_logger
 
 load_dotenv()
 
 app = FastAPI()
+setup_logger()
+logger = logging.getLogger(__name__)
 
 register_exception_handlers(app)
 
@@ -37,7 +41,7 @@ async def safe_rate_limit(request: Request, response: Response):
             # This is a legitimate rate limit - re-raise it
             raise
         # For other errors (Redis connection issues), fail open
-        print(f"Rate limiting failed (Redis issue): {e}")
+        logger.warning(f"Rate limiting failed (Redis issue): {e}")
         return
 
 
@@ -46,9 +50,11 @@ async def startup():
     try:
         redis = await initialize_redis()
         await FastAPILimiter.init(redis)
-        print("Limiter initialized successfully")
+        logger.info("Limiter initialized successfully")
+        
+
     except Exception as e:
-        print(f"Limiter initialization failed: {e}")
+        logger.error(f"Limiter initialization failed: {e}")
 
 
 @app.on_event("shutdown")
