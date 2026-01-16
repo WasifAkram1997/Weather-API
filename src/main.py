@@ -27,7 +27,7 @@ async def safe_rate_limit(request: Request, response: Response):
     """Rate limiter that fails open if Redis is unavailable"""
     
     if not FastAPILimiter.redis:
-        # Redis is down, skip rate limiting
+        # Redis is down, skip rate limiting 
         return
     
     try:
