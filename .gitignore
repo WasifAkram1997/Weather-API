@@ -5,3 +5,6 @@ logs/
 *.log
 .pytest_cache/
 *.pyc
+htmlcov/
+.coverage
+*.cover

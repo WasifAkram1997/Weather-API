@@ -9,6 +9,7 @@ from redis.asyncio import Redis
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from datetime import datetime
+from contextlib import asynccontextmanager
 
 from src.services.weather_client import fetch_weather
 from src.exception_handlers import register_exception_handlers
@@ -16,13 +17,42 @@ from src.exceptions import InvalidInputError
 from src.redis_client import initialize_redis, close_redis, get_redis
 from src.logger import setup_logger
 
+
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        redis = await initialize_redis()
+        await FastAPILimiter.init(redis)
+        logger.info("Limiter initialized successfully")
+    except Exception as e:
+        logger.error(f"Limiter initialization failed: {e}")
+    yield
+    
+    await close_redis()
+    logger.info("Application shutdown complete")
+
+
+
 load_dotenv()
 
-app = FastAPI()
+
+
+app = FastAPI(lifespan=lifespan)
 setup_logger()
 logger = logging.getLogger(__name__)
 
 register_exception_handlers(app)
+
+@app.middleware("http")
+async def log_request_time(request: Request, call_next):
+    """Middleware to log the time taken for each request"""
+    start_time = datetime.now()
+    response = await call_next(request)
+    duration = (datetime.now() - start_time).total_seconds()
+    logger.info(f"Request: {request.method} {request.url} completed in {duration:.4f} seconds")
+    return response
 
 async def safe_rate_limit(request: Request, response: Response):
     """Rate limiter that fails open if Redis is unavailable"""
@@ -44,23 +74,6 @@ async def safe_rate_limit(request: Request, response: Response):
         # For other errors (Redis connection issues), fail open
         logger.warning(f"Rate limiting failed (Redis issue): {e}")
         return
-
-
-@app.on_event("startup")
-async def startup():
-    try:
-        redis = await initialize_redis()
-        await FastAPILimiter.init(redis)
-        logger.info("Limiter initialized successfully")
-        
-
-    except Exception as e:
-        logger.error(f"Limiter initialization failed: {e}")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    await close_redis()
 
 
 #Endpoint to check application health
