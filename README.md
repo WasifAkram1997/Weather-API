@@ -222,7 +222,7 @@ All requests logged with duration:
 
 ## Author
 
-Gazi Wasif Akram(https://github.com/WasifAkram1997)
+[Gazi Wasif Akram](https://github.com/WasifAkram1997)
 
 ## Acknowledgments
 
