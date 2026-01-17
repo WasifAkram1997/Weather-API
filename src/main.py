@@ -8,11 +8,12 @@ from fastapi import FastAPI, Depends, Query, Request, Response, HTTPException
 from redis.asyncio import Redis
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
+from datetime import datetime
 
 from src.services.weather_client import fetch_weather
 from src.exception_handlers import register_exception_handlers
 from src.exceptions import InvalidInputError
-from src.redis_client import initialize_redis, close_redis
+from src.redis_client import initialize_redis, close_redis, get_redis
 from src.logger import setup_logger
 
 load_dotenv()
@@ -61,6 +62,53 @@ async def startup():
 async def shutdown():
     await close_redis()
 
+
+#Endpoint to check application health
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for monitoring. Returns API status and dependency health.
+    """
+    redis_status = "healthy"
+    redis_detail = "connected"
+    rate_limit_status = "disabled"
+    application_status = "ok"
+
+    try:
+        redis =await get_redis()
+        await redis.ping()
+        redis_status = "healthy"
+        redis_detail = "connected and responsive"
+        # application_status = "ok"
+    except Exception as e:
+        redis_status = "unhealthy"
+        redis_detail = f"connection failed: {str(e)}"
+        application_status = "degraded"
+
+    if FastAPILimiter.redis:   
+        try:
+            await FastAPILimiter.redis.ping()
+            rate_limit_status = "enabled"
+            # application_status = "ok"
+        except Exception:
+            pass
+
+    return{
+        "status": application_status,
+        "timestamp": datetime.now().isoformat(),
+        "service": "weather-api",
+        "version": "1.0.0",
+        "dependencies": {
+            "redis": {
+                "status": redis_status,
+                "detail": redis_detail
+            },
+            "rate_limiting":{
+                "status": rate_limit_status
+            }
+        }
+    }
+    
 
 @app.get("/weather", dependencies=[Depends(safe_rate_limit)])
 async def get_weather(city: str = Query(..., min_length=1, max_length=60)):
