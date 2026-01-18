@@ -1,6 +1,8 @@
 # Weather API
 
-REST API that provides current weather information with intelligent caching, rate limiting, and comprehensive monitoring.
+![CI](https://github.com/WasifAkram1997/Weather-API/actions/workflows/ci.yml/badge.svg)
+
+REST API that provides current weather information...
 
 ## Features
 
