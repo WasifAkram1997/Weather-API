@@ -16,6 +16,7 @@ from src.exception_handlers import register_exception_handlers
 from src.exceptions import InvalidInputError
 from src.redis_client import initialize_redis, close_redis, get_redis
 from src.logger import setup_logger
+from src.models import WeatherResponse, HealthResponse, ErrorResponse, WEATHER_RESPONSES
 
 
 
@@ -77,10 +78,13 @@ async def safe_rate_limit(request: Request, response: Response):
 
 
 #Endpoint to check application health
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse, summary="Health Check", description=" Check the health status of the API and its dependencies")
 async def health_check():
     """
-    Health check endpoint for monitoring. Returns API status and dependency health.
+    Health check endpoint for monitoring.
+    
+    Returns the overall service status and health of all dependencies including
+    Redis server and rate limiting service.
     """
     redis_status = "healthy"
     redis_detail = "connected"
@@ -123,8 +127,14 @@ async def health_check():
     }
     
 
-@app.get("/weather", dependencies=[Depends(safe_rate_limit)])
-async def get_weather(city: str = Query(..., min_length=1, max_length=60)):
+@app.get("/weather", response_model=WeatherResponse, responses=WEATHER_RESPONSES, dependencies=[Depends(safe_rate_limit)])
+async def get_weather(city: str = Query(..., min_length=1, max_length=60, description="City name to get weather for")):
+    """
+    Get current weather data for a specified city.
+    
+    Returns weather information including temperature, precipitation, wind, and more.
+    Data is cached for 10 minutes to improve performance.
+    """
     city = city.strip()
     if not city:
         raise InvalidInputError("City name cannot be empty or whitespace.")
